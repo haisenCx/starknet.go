@@ -21,8 +21,41 @@ func TestDeclareTransaction(t *testing.T) {
 		ExpectedResp  AddDeclareTransactionResponse
 		ExpectedError error
 	}
+	// Class Hash
+	//content, err := os.ReadFile("./tests/testContracts/testing_origin.contract_class.json")
+	content, err := os.ReadFile("./tests/testContracts/token_bridge.sierra.json")
+
+	require.NoError(t, err)
+
+	var class ContractClass
+	err = json.Unmarshal(content, &class)
+	require.NoError(t, err)
+
+	// Compiled Class Hash
+	//content2, err := os.ReadFile("./tests/hello_world_compiled.casm.json")
+	require.NoError(t, err)
+
 	testSet := map[string][]testSetType{
-		"devnet":  {},
+		"devnet": {
+			{
+				DeclareTx: BroadcastDeclareTxnV2{
+					Type:    TransactionType_Declare,
+					Version: TransactionV2,
+					Signature: []*felt.Felt{
+						utils.TestHexToFelt(t, "0x7c1119bf8ca3df81c877b17798e6edc697b5303ad820b4fabe6a43aafc1f17b"),
+						utils.TestHexToFelt(t, "0xdae9b53c4818adac054351064269fa49833a02926a88becc23474773177ec5"),
+					},
+					Nonce:             utils.TestHexToFelt(t, "0x1"),
+					MaxFee:            utils.TestHexToFelt(t, "0x2386f26fc10000"),
+					SenderAddress:     utils.TestHexToFelt(t, "0x75d0acc17175e0187d0685bdeb6e778d72a2253c75de4df75e233fd12b036c"),
+					CompiledClassHash: utils.TestHexToFelt(t, "0x6766f1aafa6a11df6c3a6f7ff5e0ad3cdbdb85a6602b5697cc44c850043fe1d"),
+					ContractClass:     class,
+				},
+				ExpectedResp: AddDeclareTransactionResponse{
+					TransactionHash: utils.TestHexToFelt(t, "0x47c217194148981d378156d8c493926687223c79619ad8321b850f697859f43")},
+				ExpectedError: nil,
+			},
+		},
 		"mainnet": {},
 		"mock": {
 			{
@@ -57,7 +90,7 @@ func TestDeclareTransaction(t *testing.T) {
 					AccountDeploymentData: []*felt.Felt{},
 				},
 				ExpectedResp: AddDeclareTransactionResponse{
-					TransactionHash: utils.TestHexToFelt(t, "0x41d1f5206ef58a443e7d3d1ca073171ec25fa75313394318fc83a074a6631c3")},
+					TransactionHash: utils.TestHexToFelt(t, "0x48776db363442bcfec44b979dbdab1f2033cb25c7b3950a0cd7c238bb5e4785")},
 				ExpectedError: nil,
 			},
 		},
@@ -82,6 +115,8 @@ func TestDeclareTransaction(t *testing.T) {
 		}
 
 		resp, err := testConfig.provider.AddDeclareTransaction(context.Background(), test.DeclareTx)
+		t.Log("resp", resp)
+		t.Log("err", err)
 		if err != nil {
 			require.Equal(t, err.Error(), test.ExpectedError)
 		} else {
@@ -101,7 +136,31 @@ func TestAddInvokeTransaction(t *testing.T) {
 		ExpectedError *RPCError
 	}
 	testSet := map[string][]testSetType{
-		"devnet":  {},
+		"devnet": {{
+			InvokeTx: InvokeTxnV1{
+				Type:    TransactionType_Invoke,
+				Version: TransactionV1,
+				Signature: []*felt.Felt{
+					utils.TestHexToFelt(t, "0x4d7204d421567cf1f247f573f64ff71de1f6b1105fbfffa0761cec0af65badb"),
+					utils.TestHexToFelt(t, "0x5d1f03ecfbf55ba215c0f80b3cbae6ef9fef42664927e3d604b12370c9602a1"),
+				},
+				Nonce:         utils.TestHexToFelt(t, "0x0"),
+				SenderAddress: utils.TestHexToFelt(t, "0x4"),
+				Calldata: []*felt.Felt{
+					utils.TestHexToFelt(t, "0x1"),
+					utils.TestHexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
+					utils.TestHexToFelt(t, "0x83afd3f4caedc6eebf44246fe54e38c95e3179a5ec9ea81740eca5b482d12e"),
+					utils.TestHexToFelt(t, "0x3"),
+					utils.TestHexToFelt(t, "0x75d0acc17175e0187d0685bdeb6e778d72a2253c75de4df75e233fd12b036c"),
+					utils.TestHexToFelt(t, "0x3635c9adc5dea00000"),
+					utils.TestHexToFelt(t, "0x0"),
+				},
+				MaxFee: utils.TestHexToFelt(t, "0xde0b6b3a7640000"),
+			},
+			ExpectedResp:  AddInvokeTransactionResponse{utils.TestHexToFelt(t, "0x651e7e07eeba00c6be3593077266bcec8362db0905f14385b8efb9b30e9cce8")},
+			ExpectedError: nil,
+		},
+		},
 		"mainnet": {},
 		"mock": {
 			{
@@ -188,7 +247,28 @@ func TestAddDeployAccountTansaction(t *testing.T) {
 		ExpectedError error
 	}
 	testSet := map[string][]testSetType{
-		"devnet":  {},
+		"devnet": {{
+			DeployTx: DeployAccountTxn{
+				MaxFee:    utils.TestHexToFelt(t, "0x16345785d8a0000"),
+				Type:      TransactionType_DeployAccount,
+				Version:   TransactionV1,
+				ClassHash: utils.TestHexToFelt(t, "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003"),
+				Signature: []*felt.Felt{
+					utils.TestHexToFelt(t, "0x17efc659a121c93cefabaea3fe40f03b43ef0ec82eaf0d37824e25c361220fd"),
+					utils.TestHexToFelt(t, "0x63726c7b5385dd702979b4459dae04c060da3d98c1fc7e6e19f0028afa9aded"),
+				},
+				Nonce:               utils.TestHexToFelt(t, "0x0"),
+				ContractAddressSalt: utils.TestHexToFelt(t, "0x3db4f4fad96e5444bdc1d0286f42948763af1b7bdb7873c08d28cb5129d4aac"),
+				ConstructorCalldata: []*felt.Felt{
+					utils.TestHexToFelt(t, "0x36e3b4894dcf3f7ff967c4cd748fe3c6aee367b4ce13b8676bd10e8aaafb1b4"),
+					utils.TestHexToFelt(t, "0x0"),
+				},
+			},
+			ExpectedResp: AddDeployAccountTransactionResponse{
+				TransactionHash: utils.TestHexToFelt(t, "0x7b49482ee823e61ab561348cae844a4e550038be2f4678eb9e6a1b595bc48a6"),
+				ContractAddress: utils.TestHexToFelt(t, "0x75d0acc17175e0187d0685bdeb6e778d72a2253c75de4df75e233fd12b036c")},
+			ExpectedError: nil,
+		}},
 		"mainnet": {},
 		"mock": {
 			{

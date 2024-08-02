@@ -1,6 +1,11 @@
 package rpc
 
-import "github.com/NethermindEth/juno/core/felt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/NethermindEth/juno/core/felt"
+)
 
 type SimulateTransactionInput struct {
 	//a sequence of transactions to simulate, running each transaction on the state resulting from applying all the previous ones
@@ -129,4 +134,47 @@ type Trace struct {
 type ExecInvocation struct {
 	FunctionInvocation FnInvocation `json:"function_invocation,omitempty"`
 	RevertReason       string       `json:"revert_reason,omitempty"`
+}
+
+// UnmarshalJSON for SimulateTransactionInput
+func (sti *SimulateTransactionInput) UnmarshalJSON(data []byte) error {
+	// 定义一个中间结构来解组 JSON 数据
+	var raw struct {
+		BlockID         BlockID           `json:"block_id"`
+		Transactions    []json.RawMessage `json:"transactions"`
+		SimulationFlags []SimulationFlag  `json:"simulation_flags"`
+	}
+
+	// 将 JSON 数据解组到中间结构中
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	sti.BlockID = raw.BlockID
+	sti.SimulationFlags = raw.SimulationFlags
+	// 遍历事务数组并处理每个事务
+	for _, rawTransaction := range raw.Transactions {
+		var txType struct {
+			Type TransactionType `json:"type"`
+		}
+		if err := json.Unmarshal(rawTransaction, &txType); err != nil {
+			return err
+		}
+
+		var tx Transaction
+		switch txType.Type {
+		case "INVOKE":
+			var invokeTxn InvokeTxnV1
+			if err := json.Unmarshal(rawTransaction, &invokeTxn); err != nil {
+				return err
+			}
+			tx = invokeTxn
+		// Add cases for other transaction types here...
+		default:
+			return fmt.Errorf("unknown transaction type: %s", txType.Type)
+		}
+
+		sti.Txns = append(sti.Txns, tx)
+	}
+
+	return nil
 }

@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -43,6 +44,13 @@ func TestClassAt(t *testing.T) {
 				Block:             WithBlockNumber(58344),
 			},
 		},
+		"devnet": {
+			{
+				ContractAddress:   utils.TestHexToFelt(t, "0x41A78E741E5AF2FEC34B695679BC6891742439F7AFB8484ECD7766661AD02BF"),
+				ExpectedOperation: utils.GetSelectorFromNameFelt("deployContract").String(),
+				Block:             WithBlockTag("latest"),
+			},
+		},
 		"testnet": {
 			// v0 contract
 			{
@@ -67,16 +75,19 @@ func TestClassAt(t *testing.T) {
 	}[testEnv]
 
 	for _, test := range testSet {
+		fmt.Println("TestClassAt Start, test: ", testEnv)
 		require := require.New(t)
 		resp, err := testConfig.provider.ClassAt(context.Background(), test.Block, test.ContractAddress)
 		require.NoError(err)
-
+		fmt.Println("resp: ", resp)
 		switch class := resp.(type) {
 		case *DeprecatedContractClass:
 			require.NotEmpty(class.Program, "code should exist")
-
 			require.Condition(func() bool {
+				fmt.Println("class.DeprecatedEntryPointsByType.External length: ", len(class.DeprecatedEntryPointsByType.External))
 				for _, deprecatedCairoEntryPoint := range class.DeprecatedEntryPointsByType.External {
+					fmt.Println("deprecatedCairoEntryPoint: ", deprecatedCairoEntryPoint.Selector.String())
+					fmt.Println("test.ExpectedOperation: ", test.ExpectedOperation)
 					if test.ExpectedOperation == deprecatedCairoEntryPoint.Selector.String() {
 						return true
 					}
@@ -114,6 +125,8 @@ func TestClassAt(t *testing.T) {
 // Returns:
 //
 //	none
+//
+// itachi Pass
 func TestClassHashAt(t *testing.T) {
 	testConfig := beforeEach(t)
 
@@ -160,6 +173,7 @@ func TestClassHashAt(t *testing.T) {
 
 	for _, test := range testSet {
 		require := require.New(t)
+		fmt.Println("test: ", testEnv)
 		classhash, err := testConfig.provider.ClassHashAt(context.Background(), WithBlockTag("latest"), test.ContractHash)
 		require.NoError(err)
 		require.NotEmpty(classhash, "should return a class")
@@ -210,11 +224,20 @@ func TestClass(t *testing.T) {
 				ExpectedProgram: "H4sIAAAAAAAA",
 			},
 		},
+		"devnet": {
+			//18
+			{
+				BlockID:                       WithBlockTag("latest"),
+				ClassHash:                     utils.TestHexToFelt(t, "0x5e30d248d37fbb0f3765c1276ca6a932af8ac45cf01c069d2c7f4539bb84c23"),
+				ExpectedProgram:               "0x28c09039a0120c",
+				ExpectedEntryPointConstructor: SierraEntryPoint{FunctionIdx: 6, Selector: utils.TestHexToFelt(t, "0x28ffe4ff0f226a9107253e17a904099aa4f63a02a5621de0576e5aa71bc5194")},
+			},
+		},
 		"testnet": {
 			// v0 class
 			{
 				BlockID:         WithBlockTag("latest"),
-				ClassHash:       utils.TestHexToFelt(t, "0x036c7e49a16f8fc760a6fbdf71dde543d98be1fee2eda5daff59a0eeae066ed9"),
+				ClassHash:       utils.TestHexToFelt(t, "0x2a747051e210a5958b3632320751a000c4ec66c8569385a37d18c0040b0b1eb"),
 				ExpectedProgram: "H4sIAAAAAAAA",
 			},
 			// v2 classes
@@ -253,6 +276,8 @@ func TestClass(t *testing.T) {
 				t.Fatal("code should exist")
 			}
 		case *ContractClass:
+			t.Log("class.SierraProgram: ", class.SierraProgram[len(class.SierraProgram)-1].String())
+			t.Log("class.EntryPointsByType.Constructor[0] ", class.EntryPointsByType.Constructor[0])
 			require.Equal(class.SierraProgram[len(class.SierraProgram)-1].String(), test.ExpectedProgram)
 			require.Equal(class.EntryPointsByType.Constructor[0], test.ExpectedEntryPointConstructor)
 		default:
@@ -295,10 +320,10 @@ func TestStorageAt(t *testing.T) {
 		},
 		"devnet": {
 			{
-				ContractHash:  utils.TestHexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+				ContractHash:  utils.TestHexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 				StorageKey:    "ERC20_name",
 				Block:         WithBlockTag("latest"),
-				ExpectedValue: "0x2eaf7fd2f670d4dc46d0e1fce1fa5e29b6549b10c0d2ff2a4f8188767327f5d",
+				ExpectedValue: "0x4574686572",
 			},
 		},
 		"testnet": {
@@ -322,6 +347,7 @@ func TestStorageAt(t *testing.T) {
 	for _, test := range testSet {
 		require := require.New(t)
 		value, err := testConfig.provider.StorageAt(context.Background(), test.ContractHash, test.StorageKey, test.Block)
+		//t.Log("value: ", value)
 		require.NoError(err)
 		require.EqualValues(test.ExpectedValue, value)
 	}
@@ -357,7 +383,7 @@ func TestNonce(t *testing.T) {
 		},
 		"devnet": {
 			{
-				ContractAddress: utils.TestHexToFelt(t, "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"),
+				ContractAddress: utils.TestHexToFelt(t, "0x49d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7"),
 				Block:           WithBlockTag("latest"),
 				ExpectedNonce:   utils.TestHexToFelt(t, "0x0"),
 			},
@@ -381,6 +407,9 @@ func TestNonce(t *testing.T) {
 	for _, test := range testSet {
 		require := require.New(t)
 		nonce, err := testConfig.provider.Nonce(context.Background(), test.Block, test.ContractAddress)
+		if err != nil {
+			t.Fatal(err)
+		}
 		require.NoError(err)
 		require.NotNil(nonce, "should return a nonce")
 		require.Equal(test.ExpectedNonce, nonce)
@@ -407,6 +436,22 @@ func TestEstimateMessageFee(t *testing.T) {
 			{
 				MsgFromL1: MsgFromL1{FromAddress: "0x0", ToAddress: &felt.Zero, Selector: &felt.Zero, Payload: []*felt.Felt{&felt.Zero}},
 				BlockID:   BlockID{Tag: "latest"},
+				ExpectedFeeEst: FeeEstimate{
+					GasConsumed: new(felt.Felt).SetUint64(1),
+					GasPrice:    new(felt.Felt).SetUint64(2),
+					OverallFee:  new(felt.Felt).SetUint64(3),
+				},
+			},
+		},
+		"devnet": {
+			{
+				MsgFromL1: MsgFromL1{
+					FromAddress: "0x7888b7B844B4B16c03F8daCACef7dDa0F5188645",
+					ToAddress:   utils.TestHexToFelt(t, "0x05cd48fccbfd8aa2773fe22c217e808319ffcc1c5a6a463f7d8fa2da48218196"),
+					Selector:    utils.TestHexToFelt(t, "0xe2bbb158"),
+					Payload:     []*felt.Felt{&felt.Zero},
+				},
+				BlockID: WithBlockTag("latest"),
 				ExpectedFeeEst: FeeEstimate{
 					GasConsumed: new(felt.Felt).SetUint64(1),
 					GasPrice:    new(felt.Felt).SetUint64(2),
@@ -520,12 +565,48 @@ func TestEstimateFee(t *testing.T) {
 				},
 			},
 		},
+		"devnet": {{
+
+			txs: []BroadcastTxn{
+				DeployAccountTxn{
+
+					Type:    TransactionType_DeployAccount,
+					Version: TransactionV1,
+					MaxFee:  utils.TestHexToFelt(t, "0x16345785d8a0000"),
+					Nonce:   utils.TestHexToFelt(t, "0x0"),
+					Signature: []*felt.Felt{
+						utils.TestHexToFelt(t, "0x23db7ec0ab875d20817d1c58e4cea132ef00eed3e529eb86e2dd61bda722575"),
+						utils.TestHexToFelt(t, "0x5074825698cb654b0c7d6dba2254d3292eb5536e7dba90b39d6539d2ccc0b86"),
+					},
+					ContractAddressSalt: utils.TestHexToFelt(t, "0x3db4f4fad96e5444bdc1d0286f42948763af1b7bdb7873c08d28cb5129d4aac"),
+					ClassHash:           utils.TestHexToFelt(t, "0x1a736d6ed154502257f02b1ccdf4d9d1089f80811cd6acad48e6b6a9d1f2003"),
+					ConstructorCalldata: utils.TestHexArrToFelt(t, []string{
+						"0x6e769c37229fe0ea06364d4f91e8b60b17c35f48546cd00a3ede0356eda26bc",
+						"0x0",
+					}),
+				},
+			},
+			simFlags:      []SimulationFlag{},
+			blockID:       WithBlockNumber(16),
+			expectedError: nil,
+			expectedResp: []FeeEstimate{
+				{
+					GasConsumed:     utils.TestHexToFelt(t, "0xd06"),
+					GasPrice:        utils.TestHexToFelt(t, "0x1"),
+					DataGasConsumed: &felt.Zero,
+					DataGasPrice:    &felt.Zero,
+					OverallFee:      utils.TestHexToFelt(t, "0xd06"),
+					FeeUnit:         UnitWei,
+				},
+			},
+		}},
 		"mock":    {},
 		"testnet": {},
 	}[testEnv]
 
 	for _, test := range testSet {
 		resp, err := testConfig.provider.EstimateFee(context.Background(), test.txs, test.simFlags, test.blockID)
+		t.Log("resp: ", resp)
 		require.Equal(t, test.expectedError, err)
 		require.Equal(t, test.expectedResp, resp)
 	}

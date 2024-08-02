@@ -36,7 +36,7 @@ type testConfiguration struct {
 
 var (
 	// set the environment for the test, default: mock
-	testEnv = "mock"
+	testEnv = "devnet"
 
 	// testConfigurations are predefined test configurations
 	testConfigurations = map[string]testConfiguration{
@@ -53,7 +53,7 @@ var (
 		// Requires a Devnet configuration running locally
 		// (ref: https://github.com/0xSpaceShard/starknet-devnet-rs)
 		"devnet": {
-			base: "http://localhost:5050/",
+			base: "http://localhost:9091/",
 		},
 		// Used with a mock as a standard configuration, see `mock_test.go``
 		"mock":        {},
@@ -75,7 +75,7 @@ var (
 //
 //	none
 func TestMain(m *testing.M) {
-	flag.StringVar(&testEnv, "env", "mock", "set the test environment")
+	flag.StringVar(&testEnv, "env", "devnet", "set the test environment")
 	flag.Parse()
 
 	os.Exit(m.Run())
@@ -89,11 +89,13 @@ func TestMain(m *testing.M) {
 // - *testConfiguration: a pointer to the testConfiguration struct
 func beforeEach(t *testing.T) *testConfiguration {
 	t.Helper()
+	//t.Log("testEnv1: ", testEnv)
 	_ = godotenv.Load(fmt.Sprintf(".env.%s", testEnv), ".env")
 	testConfig, ok := testConfigurations[testEnv]
 	if !ok {
 		t.Fatal("env supports mock, testnet, mainnet, devnet, integration")
 	}
+
 	if testEnv == "mock" {
 		testConfig.provider = &Provider{
 			c: &rpcMock{},
@@ -102,6 +104,7 @@ func beforeEach(t *testing.T) *testConfiguration {
 	}
 
 	base := os.Getenv("INTEGRATION_BASE")
+	fmt.Println("base: ", base)
 	if base != "" {
 		testConfig.base = base
 	}
@@ -136,19 +139,21 @@ func TestChainID(t *testing.T) {
 		ChainID string
 	}
 	testSet := map[string][]testSetType{
-		"devnet":  {{ChainID: "SN_SEPOLIA"}},
+		"devnet":  {{ChainID: "SN_ITACHI"}},
 		"mainnet": {{ChainID: "SN_MAIN"}},
 		"mock":    {{ChainID: "SN_SEPOLIA"}},
 		"testnet": {{ChainID: "SN_SEPOLIA"}},
 	}[testEnv]
-
 	for _, test := range testSet {
+		t.Log("testEnv: ", testEnv)
+		t.Log("testing chain id: ", test.ChainID)
 		spy := NewSpy(testConfig.provider.c)
 		testConfig.provider.c = spy
 		chain, err := testConfig.provider.ChainID(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
+		t.Log("chain: ", chain)
 		if _, err := spy.Compare(chain, false); err != nil {
 			t.Fatal("expecting to match", err)
 		}
@@ -182,7 +187,7 @@ func TestSyncing(t *testing.T) {
 	}
 
 	testSet := map[string][]testSetType{
-		"devnet":  {},
+		"devnet":  {{ChainID: "SN_ITACHI"}},
 		"mainnet": {{ChainID: "SN_MAIN"}},
 		"mock":    {{ChainID: "MOCK"}},
 		"testnet": {{ChainID: "SN_SEPOLIA"}},
@@ -229,7 +234,24 @@ func TestGetBlock(t *testing.T) {
 	}
 
 	testSet := map[string][]testSetType{
-		"devnet": {},
+		"devnet": {{
+			BlockID: BlockID{Tag: "latest"},
+			ExpectedResp: &Block{
+				BlockHeader: BlockHeader{
+					L1DAMode: L1DAModeCalldata,
+					L1DataGasPrice: ResourcePrice{
+						PriceInWei: new(felt.Felt).SetUint64(52953098),
+						PriceInFRI: new(felt.Felt).SetUint64(52953097),
+					},
+					L1GasPrice: ResourcePrice{
+						PriceInWei: new(felt.Felt).SetUint64(52953096),
+						PriceInFRI: new(felt.Felt).SetUint64(52953095),
+					},
+				},
+			},
+			ExpectedErr: nil,
+		},
+		},
 		"mock": {
 			{
 				BlockID: BlockID{Tag: "latest"},
@@ -257,6 +279,23 @@ func TestGetBlock(t *testing.T) {
 			require.Equal(t, test.ExpectedErr, err)
 		} else {
 			blockCasted := block.(*BlockTxHashes)
+			t.Log("blockHash: ", blockCasted.BlockHash)
+			t.Log("ParentHash: ", blockCasted.ParentHash)
+			t.Log("SequencerAddress: ", blockCasted.SequencerAddress)
+			t.Log("BlockNumber: ", blockCasted.BlockNumber)
+			t.Log("NewRoot: ", blockCasted.NewRoot)
+			t.Log("Timestamp: ", blockCasted.Timestamp)
+			t.Log("StarknetVersion: ", blockCasted.StarknetVersion)
+			t.Log("Status: ", blockCasted.Status)
+			t.Log("Transactions: ", blockCasted.Transactions)
+			//	Status BlockStatus `json:"status"`
+			// Transactions The hashes of the transactions included in this block
+			t.Log("blockCasted.L1DAMode: ", blockCasted.L1DAMode)
+			t.Log("blockCasted.L1DataGasPrice.PriceInWei ", blockCasted.L1DataGasPrice.PriceInWei)
+			t.Log("blockCasted.L1DataGasPrice.PriceInFRI ", blockCasted.L1DataGasPrice.PriceInFRI)
+			t.Log("blockCasted.L1GasPrice.PriceInWei ", blockCasted.L1GasPrice.PriceInWei)
+			t.Log("blockCasted.L1GasPrice.PriceInFRI ", blockCasted.L1GasPrice.PriceInFRI)
+
 			expectdBlockHeader := test.ExpectedResp.BlockHeader
 			require.Equal(t, blockCasted.L1DAMode, expectdBlockHeader.L1DAMode)
 			require.Equal(t, blockCasted.L1DataGasPrice.PriceInWei, expectdBlockHeader.L1DataGasPrice.PriceInWei)

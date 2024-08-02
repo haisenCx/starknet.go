@@ -3,6 +3,7 @@ package rpc
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"testing"
 
@@ -113,13 +114,28 @@ func TestSimulateTransaction(t *testing.T) {
 		err = json.Unmarshal(expectedrespRaw, &expectedResp)
 		require.NoError(t, err, "Error unmarshalling simulateInvokeTxResp")
 	}
+	if testEnv == "devnet" {
+		simulateTxnRaw, err := os.ReadFile("./tests/trace/simulateInvokeTx_itachi.json")
+		require.NoError(t, err, "Error ReadFile simulateInvokeTx_itachi")
 
+		err = json.Unmarshal(simulateTxnRaw, &simulateTxIn)
+		require.NoError(t, err, "Error unmarshalling simulateInvokeTx_itachi")
+
+		expectedrespRaw, err := os.ReadFile("./tests/trace/simulateInvokeTxResp_itachi.json")
+		require.NoError(t, err, "Error ReadFile simulateInvokeTxResp_itachi")
+
+		err = json.Unmarshal(expectedrespRaw, &expectedResp)
+		require.NoError(t, err, "Error unmarshalling simulateInvokeTxResp_itachi")
+	}
 	type testSetType struct {
 		SimulateTxnInput SimulateTransactionInput
 		ExpectedResp     SimulateTransactionOutput
 	}
 	testSet := map[string][]testSetType{
-		"devnet":  {},
+		"devnet": {testSetType{
+			SimulateTxnInput: simulateTxIn,
+			ExpectedResp:     expectedResp,
+		}},
 		"mock":    {},
 		"testnet": {},
 		"mainnet": {testSetType{
@@ -129,6 +145,9 @@ func TestSimulateTransaction(t *testing.T) {
 	}[testEnv]
 
 	for _, test := range testSet {
+		fmt.Println("BlockID", test.SimulateTxnInput.BlockID)
+		fmt.Println("Txns", test.SimulateTxnInput.Txns)
+		fmt.Println("SimulationFlags", test.SimulateTxnInput.SimulationFlags)
 
 		resp, err := testConfig.provider.SimulateTransactions(
 			context.Background(),
@@ -174,7 +193,11 @@ func TestTraceBlockTransactions(t *testing.T) {
 		ExpectedErr  *RPCError
 	}
 	testSet := map[string][]testSetType{
-		"devnet":  {}, // devenet doesn't support TraceBlockTransactions https://0xspaceshard.github.io/starknet-devnet/docs/guide/json-rpc-api#trace-api
+		"devnet": {testSetType{
+			BlockID:      BlockID{Hash: utils.TestHexToFelt(t, "0x7dbf802702191c1d0eac0078ba49da2fc4ad93034ac23d5d071379acf3c8e24")},
+			ExpectedResp: expectedResp,
+			ExpectedErr:  nil,
+		}}, // devenet doesn't support TraceBlockTransactions https://0xspaceshard.github.io/starknet-devnet/docs/guide/json-rpc-api#trace-api
 		"mainnet": {},
 		"mock": {
 			testSetType{

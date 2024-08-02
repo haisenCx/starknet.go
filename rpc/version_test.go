@@ -16,7 +16,9 @@ func TestSpecVersion(t *testing.T) {
 		ExpectedResp string
 	}
 	testSet := map[string][]testSetType{
-		"devnet":  {},
+		"devnet": {{
+			ExpectedResp: "0.7.0",
+		}},
 		"mainnet": {},
 		"mock":    {},
 		"testnet": {{

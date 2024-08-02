@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/NethermindEth/juno/core/felt"
@@ -80,10 +81,12 @@ func TestCall(t *testing.T) {
 	}[testEnv]
 
 	for _, test := range testSet {
+		fmt.Println("TestCall Started: ", test)
 		require := require.New(t)
 		output, err := testConfig.provider.Call(context.Background(), FunctionCall(test.FunctionCall), test.BlockID)
 		require.NoError(err)
 		require.NotEmpty(output, "should return an output")
+		fmt.Println("TestCall output: ", output)
 		require.Equal(test.ExpectedPatternResult, output[0])
 	}
 }
